@@ -4,7 +4,7 @@
 $username = $_GET['user'] ?? false;
 $ghtoken = $_GET['token'] ?? false;
 
-if(!$username || !$ghtoken) die("We need your GitHub user and the token to enter, in the querystring.");
+if(!$username || !$ghtoken) die("We need your GitHub user and the token to enter in the querystring.");
 
 function get_json($url, $token)
 {
@@ -17,7 +17,6 @@ function get_json($url, $token)
     curl_setopt($curl, CURLOPT_HTTPHEADER, array(
         'Authorization: Token '.$token,
     ));
-      //curl_setopt($curl, CONNECTTIMEOUT, 1);
     $content = curl_exec($curl);
     curl_close($curl);
   
@@ -38,32 +37,38 @@ function get_repository($result){
     return implode('/',$repo);
 }
 
+function displayreport($username, $ghtoken, $pastweekstart, $pastweekend){
+    echo "<h1>Weekly report for " . $pastweekstart . " - " . $pastweekend . "</h2>";
+    echo "<h2>Open issues</h2>";
+    $results = get_json("/search/issues?q=is:pr+is:open+sort:updated-desc+assignee:$username+updated:{$pastweekstart}..{$pastweekend}", $ghtoken);
+    echo "<ul>";
+    foreach($results["items"] as $result) {
+        echo "<li>" . get_repository($result) . " - " . get_labels($result) . $result["state"] . "(".$result["created_at"].") " . " <a href='".str_replace(['api.','/repos'],'',$result['url'])."' target='_blank'>" . $result["title"] . "</a></li>";
+    }
+    echo "</ul>";
+    echo "<h2>Merged issues</h2>";
+    $results = get_json("/search/issues?q=is:pr+is:merged+sort:merged-desc+assignee:$username+merged:{$pastweekstart}..{$pastweekend}", $ghtoken);
+    echo "<ul>";
+    foreach($results["items"] as $result) {
+        echo "<li>" . get_repository($result) . " - " . get_labels($result) . $result["state"] . "(".$result["closed_at"].") " . " <a href='".str_replace(['api.','/repos'],'',$result['url'])."' target='_blank'>" . $result["title"] . "</a></li>";
+    }
+    echo "</ul>";
+    echo "<h2>Reviewed issues</h2>";
+    $results = get_json("/search/issues?q=is:pr+reviewed-by:$username+-assignee:$username+sort:updated-desc+updated:{$pastweekstart}..{$pastweekend}", $ghtoken);
+    echo "<ul>";
+    foreach($results["items"] as $result) {
+        echo "<li>" . get_repository($result) . " - " . get_labels($result) . $result["state"] . "(".$result["closed_at"].") " . " <a href='".str_replace(['api.','/repos'],'',$result['url'])."' target='_blank'>" . $result["title"] . "</a></li>";
+    }
+    echo "</ul>";
+}
+
 echo "<pre>";
+$pastweekstart = date('Y-m-d', strtotime('Monday -1 week'));
+$pastweekend = date('Y-m-d', strtotime('Monday this week'));
+
+displayreport($username, $ghtoken, $pastweekstart, $pastweekend);
+
 $pastweekstart = date('Y-m-d', strtotime('Monday -2 week'));
 $pastweekend = date('Y-m-d', strtotime('Monday -1 week'));
 
-echo "<h1>Weekly report for " . $pastweekstart . " - " . $pastweekend . "</h2>";
-
-echo "<h2>Open issues</h2>";
-$results = get_json("/search/issues?q=is:pr+is:open+sort:updated-desc+assignee:$username+updated:>={$pastweekstart}", $ghtoken);
-echo "<ul>";
-foreach($results["items"] as $result) {
-    echo "<li>" . get_repository($result) . " - " . get_labels($result) . $result["state"] . "(".$result["created_at"].") " . " <a href='".str_replace(['api.','/repos'],'',$result['url'])."' target='_blank'>" . $result["title"] . "</a></li>";
-}
-echo "</ul>";
-
-echo "<h2>Merged issues</h2>";
-$results = get_json("/search/issues?q=is:pr+is:merged+sort:merged-desc+assignee:$username+merged:>={$pastweekstart}", $ghtoken);
-echo "<ul>";
-foreach($results["items"] as $result) {
-    echo "<li>" . get_repository($result) . " - " . get_labels($result) . $result["state"] . "(".$result["closed_at"].") " . " <a href='".str_replace(['api.','/repos'],'',$result['url'])."' target='_blank'>" . $result["title"] . "</a></li>";
-}
-echo "</ul>";
-
-echo "<h2>Reviewed issues</h2>";
-$results = get_json("/search/issues?q=is:pr+reviewed-by:$username+-assignee:$username+sort:updated-desc+updated:>={$pastweekstart}", $ghtoken);
-echo "<ul>";
-foreach($results["items"] as $result) {
-    echo "<li>" . get_repository($result) . " - " . get_labels($result) . $result["state"] . "(".$result["closed_at"].") " . " <a href='".str_replace(['api.','/repos'],'',$result['url'])."' target='_blank'>" . $result["title"] . "</a></li>";
-}
-echo "</ul>";
+displayreport($username, $ghtoken, $pastweekstart, $pastweekend);
